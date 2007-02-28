@@ -1,6 +1,6 @@
 package Archive::Cpio;
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 
 =head1 NAME
 
@@ -28,6 +28,7 @@ Archive::Cpio provides a few functions to read and write cpio files.
 my $NEWC_MAGIC = 0x070701;
 my $CRC_MAGIC  = 0x070702;
 my $TRAILER    = 'TRAILER!!!';
+my $BLOCK_SIZE = 512;
 
 my @HEADER = (
     magic => 6,
@@ -89,10 +90,10 @@ sub read_one {
     $entry->{name} =~ s/\0$//;
 
     $entry->{name} ne $TRAILER or return;
-    read_or_die($F, padding($entry->{namesize} + 2), 'padding');
+    read_or_die($F, padding(4, $entry->{namesize} + 2), 'padding');
 
     $entry->{data} = read_or_die($F, $entry->{datasize}, 'data');
-    read_or_die($F, padding($entry->{datasize}), 'padding');
+    read_or_die($F, padding(4, $entry->{datasize}), 'padding');
 
     cleanup_entry($entry);
 
@@ -131,9 +132,9 @@ sub write_one {
 
     write_or_die($F, pack_header($entry) .
 		     $entry->{name} . "\0" .
-		     "\0" x padding($entry->{namesize} + 2));
+		     "\0" x padding(4, $entry->{namesize} + 2));
     write_or_die($F, $entry->{data});
-    write_or_die($F, "\0" x padding($entry->{datasize}));
+    write_or_die($F, "\0" x padding(4, $entry->{datasize}));
 
     cleanup_entry($entry);
 }
@@ -148,6 +149,7 @@ sub write_trailer {
     my ($F) = @_;
 
     write_one($F, { name => $TRAILER, data => '', nlink => 1 });
+    write_or_die($F, "\0" x padding($BLOCK_SIZE, tell($F)));
 }
 
 sub cleanup_entry {
@@ -159,10 +161,10 @@ sub cleanup_entry {
 }
 
 sub padding {
-    my ($offset) = @_;
+    my ($nb, $offset) = @_;
 
-    my $align = $offset % 4;
-    $align ? 4 - $align : 0;
+    my $align = $offset % $nb;
+    $align ? $nb - $align : 0;
 }
 
 sub pack_header {
