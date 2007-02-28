@@ -1,0 +1,6 @@
+Changes
+MANIFEST			This list of files
+Makefile.PL
+lib/Archive/Cpio.pm
+t/00basic.t
+
