@@ -1,6 +1,7 @@
 Changes
 MANIFEST			This list of files
 Makefile.PL
+bin/cpio-filter
 lib/Archive/Cpio.pm
 t/00basic.t
 
