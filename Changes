@@ -1,3 +1,6 @@
+     - add ->add_data, ->get_file
+     - rename ->list into ->get_files
+
 0.04 Thu Mar 15 16:27:12 CET 2007
      - bug fix release
      - fix using STDIN which can't seek back
