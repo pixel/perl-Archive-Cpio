@@ -1,6 +1,6 @@
 package Archive::Cpio;
 
-our $VERSION = 0.04;
+our $VERSION = 0.05;
 
 use Archive::Cpio::Common;
 use Archive::Cpio::File;
@@ -98,17 +98,53 @@ sub remove {
     @{$cpio->{list}} = grep { !$filenames{$_} } @{$cpio->{list}};
 }
 
-=head2 $cpio->list
+=head2 $cpio->get_files([ @filenames ])
 
-Returns the list of C<Archive::Cpio::File> after a C<$cpio->read>
+Returns a list of C<Archive::Cpio::File> (after a C<$cpio->read>)
 
 =cut
 
-sub list {
-    my ($cpio) = @_;
-    @{$cpio->{list}};
+sub get_files {
+    my ($cpio, @list) = @_;
+    if (@list) {
+	map { get_file($cpio, $_) } @list;
+    } else {
+	@{$cpio->{list}};
+    }
 }
 
+=head2 $cpio->get_file($filename)
+
+Returns the C<Archive::Cpio::File> matching C<$filename< (after a C<$cpio->read>)
+
+=cut
+
+sub get_file {
+    my ($cpio, $file) = @_;
+    foreach (@{$cpio->{list}}) {
+	$_->name eq $file and return $_;
+    }
+    undef;
+}
+
+=head2 $cpio->add_data($filename, $data, $opthashref)
+
+Takes a filename, a scalar full of data and optionally a reference to a hash with specific options.
+
+Will add a file to the in-memory archive, with name C<$filename> and content C<$data>. 
+Specific properties can be set using C<$opthashref>. 
+
+=cut
+
+sub add_data {
+    my ($cpio, $filename, $data, $opthashref) = @_;
+    my $entry = $opthashref || {};
+    $entry->{name} = $filename;
+    $entry->{data} = $data;
+    $entry->{nlink} = 1;
+    $entry->{mode} = 0100644;
+    push @{$cpio->{list}}, Archive::Cpio::File->new($entry);
+}
 
 =head2 $cpio->read_with_handler($filehandle, $coderef)
 
