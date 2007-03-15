@@ -1,6 +1,10 @@
 package Archive::Cpio;
 
-our $VERSION = 0.02;
+our $VERSION = 0.04;
+
+use Archive::Cpio::Common;
+use Archive::Cpio::File;
+use Archive::Cpio::OldBinary;
 
 =head1 NAME
 
@@ -12,12 +16,22 @@ Archive::Cpio - module for manipulations of cpio archives
 
     # simple example removing entry "foo"
 
-    while (my $e = Archive::Cpio::read_one(\*STDIN)) {
-         if ($e->{name} ne 'foo') {
-               Archive::Cpio::write_one(\*STDOUT, $e);
-         }
-    }
-    Archive::Cpio::write_trailer(\*STDOUT);
+    my $cpio = Archive::Cpio->new;
+    $cpio->read($file);
+    $cpio->remove('foo');
+    $cio->write($file);
+
+     # more complex example, filtering on the fly
+
+    my $cpio = Archive::Cpio->new;
+    $cpio->read_with_handler(\*STDIN,
+                sub {
+                    my ($e) = @_;                   
+                    if ($e->name ne 'foo') {
+                        $cpio->write_one(\*STDOUT, $e);
+                    }
+                });
+    $cpio->write_trailer(\*STDOUT);
 
 =head1 DESCRIPTION
 
@@ -25,176 +39,139 @@ Archive::Cpio provides a few functions to read and write cpio files.
 
 =cut
 
-my $NEWC_MAGIC = 0x070701;
-my $CRC_MAGIC  = 0x070702;
-my $TRAILER    = 'TRAILER!!!';
-my $BLOCK_SIZE = 512;
 
-my @HEADER = (
-    magic => 6,
-    inode => 8,
-    mode => 8,
-    uid => 8,
-    gid => 8,
-    nlink => 8,
-    mtime => 8,
-    datasize => 8,
-    devMajor => 8,
-    devMinor => 8,
-    rdevMajor => 8,
-    rdevMinor => 8,
-    namesize => 8,
-    checksum => 8,
-);
+=head2 Archive::Cpio->new()
 
-
-=head2 Archive::Cpio::read_all($filehandle)
-
-Returns a list of entries
+Create an object
 
 =cut
 
-sub read_all {
-    my ($F) = @_;
-    my @l;
-    while (my $entry = read_one($F)) {
-	push @l, $entry;
-    }
-    \@l;
+sub new {
+    my ($class, %options) = @_;
+    bless \%options, $class;
 }
 
-=head2 Archive::Cpio::write_all($filehandle, $list_ref)
+=head2 $cpio->read($filename)
+
+Reads the cpio file
+
+=cut
+
+sub read {
+    my ($cpio, $filename) = @_;
+
+    open(my $IN, '<', $filename) or die "can't open $filename: $!\n";
+
+    read_with_handler($cpio, $IN, sub { 
+        my ($e) = @_;
+	push @{$cpio->{list}}, $e;
+    });
+}
+
+=head2 $cpio->write($filename)
 
 Writes the entries and the trailer
 
 =cut
 
-sub write_all {
-    my ($F, $l) = @_;
+sub write {
+    my ($cpio, $filename) = @_;
 
-    write_one($F, $_) foreach @$l;
-    write_trailer($F);
+    open(my $OUT, '>', $filename) or die "can't open $filename: $!\n";
+
+    $cpio->write_one($OUT, $_) foreach @{$cpio->{list}};
+    $cpio->write_trailer($OUT);
 }
 
-=head2 Archive::Cpio::read_all($filehandle)
+=head2 $cpio->remove(@filenames)
 
-Returns the next entry
+Removes any entries with names matching any of the given filenames from the in-memory archive
 
 =cut
 
-sub read_one {
-    my ($F) = @_;
-    my $entry = read_one_header($F);
+sub remove {
+    my ($cpio, @filenames) = @_;
+    $cpio->{list} or die "can't remove from nothing\n";
 
-    $entry->{name} = read_or_die($F, $entry->{namesize}, 'name');
-    $entry->{name} =~ s/\0$//;
+    my %filenames = map { $_ => 1 } @filenames;
 
-    $entry->{name} ne $TRAILER or return;
-    read_or_die($F, padding(4, $entry->{namesize} + 2), 'padding');
-
-    $entry->{data} = read_or_die($F, $entry->{datasize}, 'data');
-    read_or_die($F, padding(4, $entry->{datasize}), 'padding');
-
-    cleanup_entry($entry);
-
-    $entry;
+    @{$cpio->{list}} = grep { !$filenames{$_} } @{$cpio->{list}};
 }
 
-sub read_one_header {
-    my ($F) = @_;
+=head2 $cpio->list
 
-    my %h;
-    my @header = @HEADER;
-    while (@header) {
-	my $field = shift @header;
-	my $size =  shift @header;
-	$h{$field} = read_or_die($F, $size, $field);
-	$h{$field} =~ /^[0-9A-F]*$/si or die "bad header value $h{$field}\n";
-	$h{$field} = hex $h{$field};
-    }
-    $h{magic} == $NEWC_MAGIC || $h{magic} == $CRC_MAGIC or die "bad magic ($h{magic})\n";
+Returns the list of C<Archive::Cpio::File> after a C<$cpio->read>
 
-    \%h;
+=cut
+
+sub list {
+    my ($cpio) = @_;
+    @{$cpio->{list}};
 }
 
-=head2 Archive::Cpio::write_one($filehandle, $entry)
 
-Writes an entry (beware, a valid cpio needs a trailer using C<write_trailer>)
+=head2 $cpio->read_with_handler($filehandle, $coderef)
+
+Calls the handler function on each header. An C<Archive::Cpio::File> is passed as a parameter
+
+=cut
+
+sub read_with_handler {
+    my ($cpio, $F, $handler) = @_;
+
+    my $FHwp = Archive::Cpio::FileHandle_with_pushback->new($F);
+    $cpio->{archive_format} ||= detect_archive_format($FHwp);
+
+    while (my $entry = $cpio->{archive_format}->read_one($FHwp)) {
+	$entry = Archive::Cpio::File->new($entry);
+	$handler->($entry);
+    }    
+}
+
+=head2 $cpio->write_one($filehandle, $entry)
+
+Writes a C<Archive::Cpio::File> (beware, a valid cpio needs a trailer using C<write_trailer>)
 
 =cut
 
 sub write_one {
-    my ($F, $entry) = @_;
-
-    $entry->{magic} = $NEWC_MAGIC;
-    $entry->{namesize} = length($entry->{name}) + 1;
-    $entry->{datasize} = length($entry->{data});
-
-    write_or_die($F, pack_header($entry) .
-		     $entry->{name} . "\0" .
-		     "\0" x padding(4, $entry->{namesize} + 2));
-    write_or_die($F, $entry->{data});
-    write_or_die($F, "\0" x padding(4, $entry->{datasize}));
-
-    cleanup_entry($entry);
+    my ($cpio, $F, $entry) = @_;
+    $cpio->{archive_format}->write_one($F, $entry);
 }
 
-=head2 Archive::Cpio::write_trailer($filehandle)
+=head2 $cpio->write_trailer($filehandle)
 
-Writes an entry (beware, a valid cpio needs a trailer using C<write_trailer>)
+Writes the trailer to finish the cpio file
 
 =cut
 
 sub write_trailer {
-    my ($F) = @_;
-
-    write_one($F, { name => $TRAILER, data => '', nlink => 1 });
-    write_or_die($F, "\0" x padding($BLOCK_SIZE, tell($F)));
+    my ($cpio, $F) = @_;
+    $cpio->{archive_format}->write_trailer($F);
 }
 
-sub cleanup_entry {
-    my ($entry) = @_;
 
-    foreach ('datasize', 'namesize', 'magic') {
-	delete $entry->{$_};
+sub detect_archive_format {
+    my ($FHwp) = @_;
+
+    my $magics = Archive::Cpio::Common::magics();
+
+    my $max_length = max(map { length $_ } values %$magics);
+    my $s = $FHwp->read_ahead($max_length);
+
+    foreach my $magic (keys %$magics) {
+	my $archive_format = $magics->{$magic};
+	begins_with($s, $magic) or next;
+	
+	#warn "found magic for $archive_format\n";
+
+	# perl_checker: require Archive::Cpio::NewAscii
+	# perl_checker: require Archive::Cpio::OldBinary
+	my $class = "Archive::Cpio::$archive_format";
+	eval "require $class";
+	return $class->new($magic, $s);
     }
-}
-
-sub padding {
-    my ($nb, $offset) = @_;
-
-    my $align = $offset % $nb;
-    $align ? $nb - $align : 0;
-}
-
-sub pack_header {
-    my ($h) = @_;
-
-    my $packed = '';
-    my @header = @HEADER;
-    while (@header) {
-	my $field = shift @header;
-	my $size =  shift @header;
-
-	$packed .= sprintf("%0${size}X", $h->{$field} || 0);
-    }
-    $packed;
-}
-
-sub read_or_die {
-    my ($F, $size, $name) = @_;
-    $size or return;
-
-    my $tmp;
-    if ($size !~ /^\d+$/) {
-	die "bad size $size\n";
-    }
-    read($F, $tmp, $size) == $size or die "unexpected end of file while reading $name (got $tmp)\n";
-    $tmp;
-}
-sub write_or_die {
-    my ($F, $val) = @_;
-    print $F $val or die "writing failed: $!\n";
+    die "invalid archive\n";
 }
 
 =head1 AUTHOR
