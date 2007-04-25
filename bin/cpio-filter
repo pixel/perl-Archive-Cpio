@@ -9,7 +9,7 @@ cpio-filter - transform a cpio archive
 
 =head1 SYNOPSIS
 
-    urpmi [--exclude <PATTERN>]
+    urpmi [--exclude <PATTERN>] [--in-place] [<cpio file>]
 
 =head1 DESCRIPTION
 
@@ -23,20 +23,43 @@ Pascal Rigaux <pixel@mandriva.com>
 
 my %options = (
     'exclude=s' => \ (my $exclude), 
+    'in-place|i' => \ (my $in_place),
 );
 
 sub usage {
-    die "usage: cpio-filter [--exclude <PATTERN>]\n";
+    die "usage: cpio-filter [--exclude <PATTERN>] [--in-place] [<cpio file>]\n";
 }
 
 GetOptions(%options) or usage();
-@ARGV == 0 or usage();
+@ARGV <= 1 or usage();
 
-while (my $e = Archive::Cpio::read_one(\*STDIN)) {
-    if ($exclude && $e->{name} =~ m!(^|/)${exclude}($|/)!) {
-	next;
+if ($in_place) {
+    @ARGV or die "you can't use --in-place without giving a cpio file\n";
+}
+
+my ($file) = @ARGV;
+
+sub exclude {
+    my ($e) = @_;
+    $exclude && $e->name =~ m!(^|/)${exclude}($|/)!;
+}
+
+my $cpio = Archive::Cpio->new;
+if ($in_place) {
+    $cpio->read($file);
+    $cpio->remove(grep { exclude($_) } $cpio->get_files);
+    $cpio->write($file);
+} else {
+    my $IN;
+    if ($file) {
+	open($IN, '<', $file) or die "can't open $file: $!\n";
+    } else {
+	$IN = \*STDIN;
     }
 
-    Archive::Cpio::write_one(\*STDOUT, $e);
+    $cpio->read_with_handler($IN, sub {
+        my ($e) = @_;
+	$cpio->write_one(\*STDOUT, $e) if !exclude($e);
+    });
+    $cpio->write_trailer(\*STDOUT);
 }
-Archive::Cpio::write_trailer(\*STDOUT);
