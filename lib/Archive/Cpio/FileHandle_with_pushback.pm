@@ -18,7 +18,7 @@ sub read {
 
     $size =~ /^\d+$/ or die "bad size $size\n";
 
-    my $tmp;
+    my $tmp = '';
 
     if ($FHwp->{already_read}) {
 	$tmp = substr($FHwp->{already_read}, 0, $size);
