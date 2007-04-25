@@ -8,6 +8,7 @@ our @EXPORT = qw(padding write_or_die max begins_with);
 
 sub magics() {
     {
+	"070707" => 'ODC',
 	"070701" => 'NewAscii',
 	"\xC7\x71" => 'OldBinary', # swabbed 070707
 	"\x71\xC7" => 'OldBinary', # 070707

@@ -1,6 +1,6 @@
 package Archive::Cpio;
 
-our $VERSION = 0.05;
+our $VERSION = 0.06;
 
 use Archive::Cpio::Common;
 use Archive::Cpio::File;

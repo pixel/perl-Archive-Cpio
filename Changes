@@ -1,3 +1,6 @@
+0.06 Tue Apr 25 00:00:00 CET 2007
+     - handle ODC (octal) format (Mike Sliczniak)
+
 0.05 Thu Mar 15 18:34:12 CET 2007
      - add ->add_data, ->get_file
      - rename ->list into ->get_files
