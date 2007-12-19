@@ -7,7 +7,7 @@ sub new {
 }
 
 sub name { my ($o) = @_; $o->{name} }
-sub size { my ($o) = @_; $o->{datasize} }
+sub size { my ($o) = @_; length($o->{data}) }
 sub get_content { my ($o) = @_; $o->{data} }
 
 1;

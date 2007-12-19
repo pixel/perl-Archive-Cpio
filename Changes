@@ -1,3 +1,5 @@
+     - fix ->size on Archive::Cpio::File (rt.cpan.org #31686) (thanks to teek)
+
 0.06 Tue Apr 25 00:00:00 CET 2007
      - handle ODC (octal) format (Mike Sliczniak)
 
