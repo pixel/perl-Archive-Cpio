@@ -1,6 +1,6 @@
 package Archive::Cpio;
 
-our $VERSION = 0.06;
+our $VERSION = 0.07;
 
 use Archive::Cpio::Common;
 use Archive::Cpio::File;
@@ -53,14 +53,21 @@ sub new {
 
 =head2 $cpio->read($filename)
 
+=head2 $cpio->read($filehandle)
+
 Reads the cpio file
 
 =cut
 
 sub read {
-    my ($cpio, $filename) = @_;
-
-    open(my $IN, '<', $filename) or die "can't open $filename: $!\n";
+    my ($cpio, $file) = @_;
+    
+    my $IN;
+    if (ref $file) {
+	$IN = $file;
+    } else {
+	open($IN, '<', $file) or die "can't open $file: $!\n";
+    }
 
     read_with_handler($cpio, $IN, sub { 
         my ($e) = @_;
@@ -70,14 +77,21 @@ sub read {
 
 =head2 $cpio->write($filename)
 
+=head2 $cpio->write($filehandle)
+
 Writes the entries and the trailer
 
 =cut
 
 sub write {
-    my ($cpio, $filename) = @_;
+    my ($cpio, $file) = @_;
 
-    open(my $OUT, '>', $filename) or die "can't open $filename: $!\n";
+    my $OUT;
+    if (ref $file) {
+	$OUT = $file;
+    } else {
+	open($OUT, '>', $file) or die "can't open $file: $!\n";
+    }
 
     $cpio->write_one($OUT, $_) foreach @{$cpio->{list}};
     $cpio->write_trailer($OUT);
