@@ -9,7 +9,7 @@ cpio-filter - transform a cpio archive
 
 =head1 SYNOPSIS
 
-    urpmi [--exclude <PATTERN>] [--in-place] [<cpio file>]
+    cpio-filter [--exclude <PATTERN>] [--in-place] [<cpio file>]
 
 =head1 DESCRIPTION
 
