@@ -1,6 +1,6 @@
 package Archive::Cpio;
 
-our $VERSION = 0.07;
+our $VERSION = 0.08;
 
 use Archive::Cpio::Common;
 use Archive::Cpio::File;
@@ -109,7 +109,7 @@ sub remove {
 
     my %filenames = map { $_ => 1 } @filenames;
 
-    @{$cpio->{list}} = grep { !$filenames{$_} } @{$cpio->{list}};
+    @{$cpio->{list}} = grep { !$filenames{$_->name} } @{$cpio->{list}};
 }
 
 =head2 $cpio->get_files([ @filenames ])

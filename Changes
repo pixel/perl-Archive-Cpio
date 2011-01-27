@@ -1,3 +1,6 @@
+0.08 Thu Jan 27 09:50:42 CET 2011
+     - fix ->remove on Archive::Cpio (rt.cpan.org #64852) (thanks to Frits/vwf and Corion)
+
 0.07 Wed Dec 19 11:45:45 CET 2007
      - allow ->read($filehandle) and ->write($filehandle) (rt.cpan.org #31686)
      - fix ->size on Archive::Cpio::File (rt.cpan.org #31684) (thanks to teek)
