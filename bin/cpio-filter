@@ -47,7 +47,7 @@ sub exclude {
 my $cpio = Archive::Cpio->new;
 if ($in_place) {
     $cpio->read($file);
-    $cpio->remove(grep { exclude($_) } $cpio->get_files);
+    $cpio->remove(map { exclude($_) ? $_->name : () } $cpio->get_files);
     $cpio->write($file);
 } else {
     my $IN;
