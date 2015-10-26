@@ -215,13 +215,19 @@ sub detect_archive_format {
 	
 	#warn "found magic for $archive_format\n";
 
-	# perl_checker: require Archive::Cpio::NewAscii
-	# perl_checker: require Archive::Cpio::OldBinary
-	my $class = "Archive::Cpio::$archive_format";
-	eval "require $class";
-	return $class->new($magic, $s);
+	return _create_archive_format($archive_format, $magic);
     }
     die "invalid archive\n";
+}
+
+sub _create_archive_format {
+    my ($archive_format, $magic) = @_;
+
+    # perl_checker: require Archive::Cpio::NewAscii
+    # perl_checker: require Archive::Cpio::OldBinary
+    my $class = "Archive::Cpio::$archive_format";
+    eval "require $class";
+    return $class->new($magic, $s);
 }
 
 =head1 AUTHOR
