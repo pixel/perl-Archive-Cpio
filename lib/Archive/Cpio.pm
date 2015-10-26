@@ -220,8 +220,17 @@ sub detect_archive_format {
     die "invalid archive\n";
 }
 
+sub _default_magic {
+    my ($archive_format) = @_;
+    my $magics = Archive::Cpio::Common::magics();
+    my %format2magic = reverse %$magic;
+    $format2magic{$archive_format} or die "unknown archive_format $archive_format\n";
+}
+
 sub _create_archive_format {
     my ($archive_format, $magic) = @_;
+
+    $magic ||= _default_magic($archive_format);
 
     # perl_checker: require Archive::Cpio::NewAscii
     # perl_checker: require Archive::Cpio::OldBinary
