@@ -155,8 +155,8 @@ sub add_data {
     my $entry = $opthashref || {};
     $entry->{name} = $filename;
     $entry->{data} = $data;
-    $entry->{nlink} = 1;
-    $entry->{mode} = 0100644;
+    $entry->{nlink} ||= 1;
+    $entry->{mode} ||= 0100644;
     push @{$cpio->{list}}, Archive::Cpio::File->new($entry);
 }
 
