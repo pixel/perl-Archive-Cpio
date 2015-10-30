@@ -178,7 +178,7 @@ sub read_with_handler {
     my ($cpio, $F, $handler) = @_;
 
     my $FHwp = Archive::Cpio::FileHandle_with_pushback->new($F);
-    $cpio->{archive_format} ||= detect_archive_format($FHwp);
+    $cpio->{archive_format} = detect_archive_format($FHwp);
 
     while (my $entry = $cpio->{archive_format}->read_one($FHwp)) {
         $entry = Archive::Cpio::File->new($entry);
