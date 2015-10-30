@@ -51,11 +51,11 @@ sub read_one_header {
     my %h;
     my @header = @HEADER;
     while (@header) {
-	my $field = shift @header;
-	my $size =  shift @header;
-	$h{$field} = $FHwp->read($size);
-	$h{$field} =~ /^[0-9A-F]*$/si or die "bad header value $h{$field}\n";
-	$h{$field} = hex $h{$field};
+        my $field = shift @header;
+        my $size =  shift @header;
+        $h{$field} = $FHwp->read($size);
+        $h{$field} =~ /^[0-9A-F]*$/si or die "bad header value $h{$field}\n";
+        $h{$field} = hex $h{$field};
     }
     $h{magic} == $o->{magic} or die "bad magic ($h{magic} vs $o->{MAGIC})\n";
 
@@ -70,8 +70,8 @@ sub write_one {
     $entry->{datasize} = length($entry->{data});
 
     write_or_die($F, pack_header($entry) .
-		     $entry->{name} . "\0" .
-		     "\0" x padding(4, $entry->{namesize} + 2));
+                     $entry->{name} . "\0" .
+                     "\0" x padding(4, $entry->{namesize} + 2));
     write_or_die($F, $entry->{data});
     write_or_die($F, "\0" x padding(4, $entry->{datasize}));
 
@@ -89,7 +89,7 @@ sub cleanup_entry {
     my ($entry) = @_;
 
     foreach ('datasize', 'namesize', 'magic') {
-	delete $entry->{$_};
+        delete $entry->{$_};
     }
 }
 
@@ -99,10 +99,10 @@ sub pack_header {
     my $packed = '';
     my @header = @HEADER;
     while (@header) {
-	my $field = shift @header;
-	my $size =  shift @header;
+        my $field = shift @header;
+        my $size =  shift @header;
 
-	$packed .= sprintf("%0${size}X", $h->{$field} || 0);
+        $packed .= sprintf("%0${size}X", $h->{$field} || 0);
     }
     $packed;
 }
