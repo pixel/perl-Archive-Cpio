@@ -1,5 +1,8 @@
 package Archive::Cpio;
 
+use strict;
+use warnings;
+
 our $VERSION = 0.09;
 
 use Archive::Cpio::Common;
@@ -84,13 +87,18 @@ Writes the entries and the trailer
 =cut
 
 sub write {
-    my ($cpio, $file) = @_;
+    my ($cpio, $file, $fmt) = @_;
 
     my $OUT;
     if (ref $file) {
         $OUT = $file;
     } else {
         open($OUT, '>', $file) or die "can't open $file: $!\n";
+    }
+
+    # Set the format if not done or if specified
+    if (!$cpio->{archive_format} || $fmt) {
+        $cpio->{archive_format} = _create_archive_format($fmt || 'ODC');
     }
 
     $cpio->write_one($OUT, $_) foreach @{$cpio->{list}};
@@ -201,6 +209,27 @@ sub write_trailer {
 }
 
 
+
+
+sub _default_magic {
+    my ($archive_format) = @_;
+    my $magics = Archive::Cpio::Common::magics();
+    my %format2magic = reverse %$magics;
+    $format2magic{$archive_format} or die "unknown archive_format $archive_format\n";
+}
+
+sub _create_archive_format {
+    my ($archive_format, $magic) = @_;
+
+    $magic ||= _default_magic($archive_format);
+
+    # perl_checker: require Archive::Cpio::NewAscii
+    # perl_checker: require Archive::Cpio::OldBinary
+    my $class = "Archive::Cpio::$archive_format";
+    eval "require $class";
+    return $class->new($magic);
+}
+
 sub detect_archive_format {
     my ($FHwp) = @_;
 
@@ -217,9 +246,7 @@ sub detect_archive_format {
 
         # perl_checker: require Archive::Cpio::NewAscii
         # perl_checker: require Archive::Cpio::OldBinary
-        my $class = "Archive::Cpio::$archive_format";
-        eval "require $class";
-        return $class->new($magic, $s);
+        return _create_archive_format($archive_format, $magic);
     }
     die "invalid archive\n";
 }
