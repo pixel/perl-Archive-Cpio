@@ -1,5 +1,8 @@
 package Archive::Cpio;
 
+use strict;
+use warnings;
+
 our $VERSION = 0.09;
 
 use Archive::Cpio::Common;
@@ -10,7 +13,7 @@ use Archive::Cpio::OldBinary;
 
 Archive::Cpio - module for manipulations of cpio archives
 
-=head1 SYNOPSIS     
+=head1 SYNOPSIS
 
     use Archive::Cpio;
 
@@ -26,7 +29,7 @@ Archive::Cpio - module for manipulations of cpio archives
     my $cpio = Archive::Cpio->new;
     $cpio->read_with_handler(\*STDIN,
                 sub {
-                    my ($e) = @_;                   
+                    my ($e) = @_;
                     if ($e->name ne 'foo') {
                         $cpio->write_one(\*STDOUT, $e);
                     }
@@ -61,17 +64,17 @@ Reads the cpio file
 
 sub read {
     my ($cpio, $file) = @_;
-    
+
     my $IN;
     if (ref $file) {
-	$IN = $file;
+        $IN = $file;
     } else {
-	open($IN, '<', $file) or die "can't open $file: $!\n";
+        open($IN, '<', $file) or die "can't open $file: $!\n";
     }
 
-    read_with_handler($cpio, $IN, sub { 
+    read_with_handler($cpio, $IN, sub {
         my ($e) = @_;
-	push @{$cpio->{list}}, $e;
+        push @{$cpio->{list}}, $e;
     });
 }
 
@@ -84,13 +87,18 @@ Writes the entries and the trailer
 =cut
 
 sub write {
-    my ($cpio, $file) = @_;
+    my ($cpio, $file, $fmt) = @_;
 
     my $OUT;
     if (ref $file) {
-	$OUT = $file;
+        $OUT = $file;
     } else {
-	open($OUT, '>', $file) or die "can't open $file: $!\n";
+        open($OUT, '>', $file) or die "can't open $file: $!\n";
+    }
+
+    # Set the format if not done or if specified
+    if (!$cpio->{archive_format} || $fmt) {
+        $cpio->{archive_format} = _create_archive_format($fmt || 'ODC');
     }
 
     $cpio->write_one($OUT, $_) foreach @{$cpio->{list}};
@@ -121,9 +129,9 @@ Returns a list of C<Archive::Cpio::File> (after a C<$cpio->read>)
 sub get_files {
     my ($cpio, @list) = @_;
     if (@list) {
-	map { get_file($cpio, $_) } @list;
+        map { get_file($cpio, $_) } @list;
     } else {
-	@{$cpio->{list}};
+        @{$cpio->{list}};
     }
 }
 
@@ -136,7 +144,7 @@ Returns the C<Archive::Cpio::File> matching C<$filename< (after a C<$cpio->read>
 sub get_file {
     my ($cpio, $file) = @_;
     foreach (@{$cpio->{list}}) {
-	$_->name eq $file and return $_;
+        $_->name eq $file and return $_;
     }
     undef;
 }
@@ -145,8 +153,8 @@ sub get_file {
 
 Takes a filename, a scalar full of data and optionally a reference to a hash with specific options.
 
-Will add a file to the in-memory archive, with name C<$filename> and content C<$data>. 
-Specific properties can be set using C<$opthashref>. 
+Will add a file to the in-memory archive, with name C<$filename> and content C<$data>.
+Specific properties can be set using C<$opthashref>.
 
 =cut
 
@@ -155,8 +163,8 @@ sub add_data {
     my $entry = $opthashref || {};
     $entry->{name} = $filename;
     $entry->{data} = $data;
-    $entry->{nlink} = 1;
-    $entry->{mode} = 0100644;
+    $entry->{nlink} ||= 1;
+    $entry->{mode} ||= 0100644;
     push @{$cpio->{list}}, Archive::Cpio::File->new($entry);
 }
 
@@ -170,12 +178,12 @@ sub read_with_handler {
     my ($cpio, $F, $handler) = @_;
 
     my $FHwp = Archive::Cpio::FileHandle_with_pushback->new($F);
-    $cpio->{archive_format} ||= detect_archive_format($FHwp);
+    $cpio->{archive_format} = detect_archive_format($FHwp);
 
     while (my $entry = $cpio->{archive_format}->read_one($FHwp)) {
-	$entry = Archive::Cpio::File->new($entry);
-	$handler->($entry);
-    }    
+        $entry = Archive::Cpio::File->new($entry);
+        $handler->($entry);
+    }
 }
 
 =head2 $cpio->write_one($filehandle, $entry)
@@ -201,6 +209,27 @@ sub write_trailer {
 }
 
 
+
+
+sub _default_magic {
+    my ($archive_format) = @_;
+    my $magics = Archive::Cpio::Common::magics();
+    my %format2magic = reverse %$magics;
+    $format2magic{$archive_format} or die "unknown archive_format $archive_format\n";
+}
+
+sub _create_archive_format {
+    my ($archive_format, $magic) = @_;
+
+    $magic ||= _default_magic($archive_format);
+
+    # perl_checker: require Archive::Cpio::NewAscii
+    # perl_checker: require Archive::Cpio::OldBinary
+    my $class = "Archive::Cpio::$archive_format";
+    eval "require $class";
+    return $class->new($magic);
+}
+
 sub detect_archive_format {
     my ($FHwp) = @_;
 
@@ -210,16 +239,14 @@ sub detect_archive_format {
     my $s = $FHwp->read_ahead($max_length);
 
     foreach my $magic (keys %$magics) {
-	my $archive_format = $magics->{$magic};
-	begins_with($s, $magic) or next;
-	
-	#warn "found magic for $archive_format\n";
+        my $archive_format = $magics->{$magic};
+        begins_with($s, $magic) or next;
 
-	# perl_checker: require Archive::Cpio::NewAscii
-	# perl_checker: require Archive::Cpio::OldBinary
-	my $class = "Archive::Cpio::$archive_format";
-	eval "require $class";
-	return $class->new($magic, $s);
+        #warn "found magic for $archive_format\n";
+
+        # perl_checker: require Archive::Cpio::NewAscii
+        # perl_checker: require Archive::Cpio::OldBinary
+        return _create_archive_format($archive_format, $magic);
     }
     die "invalid archive\n";
 }
@@ -228,4 +255,4 @@ sub detect_archive_format {
 
 Pascal Rigaux <pixel@mandriva.com>
 
-=cut 
+=cut

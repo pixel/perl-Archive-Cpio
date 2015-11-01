@@ -21,9 +21,9 @@ sub read {
     my $tmp = '';
 
     if ($FHwp->{already_read}) {
-	$tmp = substr($FHwp->{already_read}, 0, $size);
-	substr($FHwp->{already_read}, 0, $size) = '';
-	$size -= length($tmp);
+        $tmp = substr($FHwp->{already_read}, 0, $size);
+        substr($FHwp->{already_read}, 0, $size) = '';
+        $size -= length($tmp);
     }
     read($FHwp->{F}, $tmp, $size, length($tmp)) == $size or die "unexpected end of file while reading (got $tmp)\n";
     $tmp;

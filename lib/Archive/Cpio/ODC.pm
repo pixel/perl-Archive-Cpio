@@ -46,11 +46,11 @@ sub read_one_header {
     my %h;
     my @header = @HEADER;
     while (@header) {
-	my $field = shift @header;
-	my $size =  shift @header;
-	$h{$field} = $FHwp->read($size);
-	$h{$field} =~ /^[0-9]*$/si or die "bad header value $h{$field}\n";
-	$h{$field} = oct $h{$field};
+        my $field = shift @header;
+        my $size =  shift @header;
+        $h{$field} = $FHwp->read($size);
+        $h{$field} =~ /^[0-9]*$/si or die "bad header value $h{$field}\n";
+        $h{$field} = oct $h{$field};
     }
     $h{magic} == $o->{magic} or die "bad magic ($h{magic} vs $o->{MAGIC})\n";
 
@@ -65,7 +65,7 @@ sub write_one {
     $entry->{datasize} = length($entry->{data});
 
     write_or_die($F, pack_header($entry) .
-		     $entry->{name} . "\0" . $entry->{data});
+                     $entry->{name} . "\0" . $entry->{data});
 
     cleanup_entry($entry);
 }
@@ -80,7 +80,7 @@ sub cleanup_entry {
     my ($entry) = @_;
 
     foreach ('datasize', 'namesize', 'magic') {
-	delete $entry->{$_};
+        delete $entry->{$_};
     }
 }
 
@@ -90,10 +90,10 @@ sub pack_header {
     my $packed = '';
     my @header = @HEADER;
     while (@header) {
-	my $field = shift @header;
-	my $size =  shift @header;
+        my $field = shift @header;
+        my $size =  shift @header;
 
-	$packed .= sprintf("%0${size}lo", $h->{$field} || 0);
+        $packed .= sprintf("%0${size}lo", $h->{$field} || 0);
     }
     $packed;
 }
