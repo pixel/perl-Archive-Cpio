@@ -3,7 +3,7 @@ package Archive::Cpio;
 use strict;
 use warnings;
 
-our $VERSION = 0.09;
+our $VERSION = '0.10';
 
 use Archive::Cpio::Common;
 use Archive::Cpio::File;
